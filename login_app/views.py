@@ -1,19 +1,12 @@
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from rest_framework import status
-from rest_framework.response import Response
-from rest_framework.decorators import api_view
-from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
-from .models import * 
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
 from .serializers import *
-
-# Default TokenObtainPairView gives you the token based on username and password
-class CustomTokenObtainPairView(TokenObtainPairView):
-    pass
 
 @api_view(['POST'])
 def login(request):
-    serializer = UserLoginSerializer(data=request.data)
+    serializer = ClientLoginSerializer(data=request.data)
     if serializer.is_valid():
         user = serializer.validated_data['user']
         
@@ -21,10 +14,25 @@ def login(request):
         refresh = RefreshToken.for_user(user)
         access_token = refresh.access_token
 
-        # Serialize user data
-        user_data = UserSerializer(user).data
+        # Determine the user's role
+        if user.is_superuser:
+            user_type = "superadmin"
+        elif user.is_staff:
+            user_type = "admin"
+        else:
+            user_type = "user"
 
-        # Merge tokens into user_data
+        # Serialize user data
+        user_data = {
+            "id": user.id,
+            "username": user.username,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "email": user.email,
+            "user_type": user_type  # Add user role to response
+        }
+
+        # Add tokens to user data
         user_data['access'] = str(access_token)
         user_data['refresh'] = str(refresh)
 
@@ -32,18 +40,37 @@ def login(request):
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
-
-@api_view(['POST',])
+#register view
+@api_view(['POST'])
 def register(request):
-    serializer = UserRegisterSerializer(data=request.data)
+    serializer = ClientRegisterSerializer(data=request.data)
     if serializer.is_valid():
         user = serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response({
+            "id": user.id,
+            "username": user.username,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "email": user.email
+        }, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-
+@api_view(['GET'])
+def get_user_role(request, id):
+    try:
+        user = User.objects.get(id=id)
+        if user.is_superuser:
+            user_role = "Super Admin"
+        elif user.is_staff:
+            user_role = "Admin"
+        else:
+            user_role = "Regular User"
+        
+        return Response({"user_type": user_role}, status=status.HTTP_200_OK)
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+    
 @api_view(['GET'])
 def users(request):
     if request.method == 'GET':
@@ -51,5 +78,15 @@ def users(request):
         serializer = UserSerializer(users, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     return Response({"error": "Method not allowed"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+
+@api_view(['GET'])
+def user_detail(request, id):
+    try:
+        user = User.objects.get(id=id)
+        serializer = UserSerializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
 
