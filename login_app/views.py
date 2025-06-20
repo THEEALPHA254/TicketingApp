@@ -13,27 +13,28 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 
 @api_view(['POST'])
 def login(request):
-    print("DEBUG request.data:", request.data)
-    # Use UserLoginSerializer to validate the user credentials
     serializer = UserLoginSerializer(data=request.data)
     if serializer.is_valid():
         user = serializer.validated_data['user']
         
-        # Generate JWT tokens for the authenticated user
+        # Generate JWT tokens
         refresh = RefreshToken.for_user(user)
         access_token = refresh.access_token
-        
-        return Response({
-            'access': str(access_token),
-            'refresh': str(refresh),
-        }, status=status.HTTP_200_OK)
-    
-    # Return errors if serializer is not valid
+
+        # Serialize user data
+        user_data = UserSerializer(user).data
+
+        # Merge tokens into user_data
+        user_data['access'] = str(access_token)
+        user_data['refresh'] = str(refresh)
+
+        return Response(user_data, status=status.HTTP_200_OK)
+
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 
-@api_view(['POST'])
+@api_view(['POST',])
 def register(request):
     serializer = UserRegisterSerializer(data=request.data)
     if serializer.is_valid():
