@@ -72,21 +72,25 @@ def get_user_role(request, id):
         return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
     
 @api_view(['GET'])
-def users(request):
-    if request.method == 'GET':
-        users = User.objects.all()
-        serializer = UserSerializer(users, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    return Response({"error": "Method not allowed"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
-
-
-@api_view(['GET'])
-def user_detail(request, id):
+def users(request, id):
     try:
         user = User.objects.get(id=id)
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+    if not user.is_superuser:
+        return Response({"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
+    users = User.objects.all()
+    serializer = UserSerializer(users, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+def user_detail(request, pk):
+    try:
+        user = User.objects.get(pk=pk)
         serializer = UserSerializer(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
     except User.DoesNotExist:
         return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
 
 

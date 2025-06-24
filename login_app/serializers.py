@@ -20,12 +20,16 @@ class ClientLoginSerializer(serializers.Serializer):
         password = data.get('password')
 
         if not username or not password:
-            raise serializers.ValidationError("Username and password are required.")
+            raise serializers.ValidationError("Username/email and password are required.")
 
         try:
-            user = User.objects.get(username=username)
+            if '@' in username:
+                user = User.objects.get(email=username)
+            else:
+                user = User.objects.get(username=username)
         except User.DoesNotExist:
             raise serializers.ValidationError("Invalid credentials.")
+
         
         # Authenticate the user
         if not user.check_password(password):  # Check hashed password
